@@ -72,6 +72,9 @@ PATTERN_FEEDBACK_POSITIF_USER = re.compile(
 
         # EN
         \byes\b
+        | \byeah\b
+        | \byep\b
+        | \bi\s+think\b
         | thanks?\b
         | thank\s+you
         | awesome\b
@@ -452,15 +455,32 @@ PATTERN_ESCALADE_FOLLOWUP = re.compile(
 PATTERN_BOT_NO_ANSWER = re.compile(
     r"""
     (?:
+        # FR — pas trouvé d'information
         je\s+n['']ai\s+pas\s+trouv[ée]?\s+d['']informations?
         | je\s+n['']ai\s+pas\s+trouv[ée]?\s+d['']informations?\s+spécifiques?
         | je\s+n['']ai\s+pas\s+trouv[ée]?\s+d['']information\s+sur
         | aucune\s+information\s+spécifique
         | information\s+non\s+trouv[ée]e?
-        | i\s+could\s+not\s+find\s+information
+        | pas\s+dans\s+(?:ma|notre)\s+(?:base|documentation)
+
+        |
+
+        # EN — pas trouvé d'information
+        i\s+could\s+not\s+find\s+information
         | i\s+couldn['']t\s+find\s+information
         | i\s+did\s+not\s+find\s+information
         | i\s+don['']t\s+have\s+information
+        | (?:the\s+)?information\s+(?:about|on|regarding).{0,60}(?:is\s+not|not\s+found|unavailable)\s+in\s+my
+        | not\s+in\s+my\s+knowledge\s+base
+        | is\s+not\s+in\s+my\s+knowledge\s+base
+
+        |
+
+        # EN — bot admet ne pas pouvoir résoudre
+        i\s+cannot\s+provide\s+a\s+(?:precise\s+)?(?:solution|answer|response)
+        | i\s+am\s+unable\s+to\s+(?:provide|answer|resolve|find)
+        | i['']m\s+unable\s+to\s+(?:provide|answer|resolve|find)
+        | without\s+(?:seeing|knowing|more\s+information).{0,80}i\s+cannot
     )
     """,
     re.IGNORECASE | re.VERBOSE,
@@ -672,6 +692,13 @@ def get_questions(transcript: pd.DataFrame) -> pd.DataFrame:
         .shift(1)
         .fillna(False)
     )
+    # Flag global : un agent humain a parlé à un moment quelconque dans la conversation
+    human_agent_ever_spoke = (
+        df.groupby("id")["is_human_agent"]
+        .transform("max")
+        .astype(bool)
+    )
+    df["human_agent_ever_spoke"] = human_agent_ever_spoke
 
     # --- Flags sur les messages utilisateur ---
     df["user_message_is_request"] = (
@@ -774,13 +801,16 @@ def get_questions(transcript: pd.DataFrame) -> pd.DataFrame:
     )
 
     # --- Détection des nouvelles questions ---
+    # Règle absolue : dès qu'un agent humain est intervenu dans la conversation,
+    # on ne crée plus de nouvelle question (l'agent gère la suite).
     df["is_new_question_start"] = (
         (df["speaker_type"] == "user")
         & df["has_user_message"]
+        & ~df["user_greeting_only"]
+        & ~df["human_agent_ever_spoke"]   # bloque toute Q2+ si un agent est intervenu
         & (
             (
                 df["user_explicit_new_question"]
-                & ~df["human_agent_has_spoken_before"]
             )
             |
             (
@@ -791,7 +821,6 @@ def get_questions(transcript: pd.DataFrame) -> pd.DataFrame:
                     | df["bot_asked_fb_since_last_user"]
                     | (df["ordre_message_conv"] == df["first_user_message"])
                 )
-                & ~df["human_agent_has_spoken_before"]
                 & ~df["bot_asked_clarification_since_last_user"]
                 & ~df["user_escalade_followup"]
                 & ~df["user_clarification_only"]
