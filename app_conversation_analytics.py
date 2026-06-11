@@ -90,13 +90,14 @@ def get_question_content(questions: pd.DataFrame) -> pd.DataFrame:
     """
     df = questions.copy()
 
-    # Cible principale : premier message marqué comme début de question
+    is_user = df["speaker_type"] == "user"
+    has_question = df["question_id"].notna()
+    # On exclut les messages qui ne sont que des pièces jointes ou liens
+    not_attachment = ~df["message"].fillna("").str.contains(utils.PATTERN_ATTACHMENT_OR_LINK, na=False)
+
+    # Cible principale : premier message marqué comme début de question (hors attachment)
     primary = (
-        df[
-            (df["speaker_type"] == "user")
-            & df["question_id"].notna()
-            & df["is_new_question_start"]
-        ]
+        df[is_user & has_question & df["is_new_question_start"] & not_attachment]
         .sort_values(["id", "question_id", "ordre_message_question"])
         .groupby(["id", "question_id"])
         .agg(
@@ -106,12 +107,9 @@ def get_question_content(questions: pd.DataFrame) -> pd.DataFrame:
         .reset_index()
     )
 
-    # Fallback : premier message user de la question (quelle que soit la condition)
+    # Fallback 1 : premier message user non-attachment de la question
     fallback = (
-        df[
-            (df["speaker_type"] == "user")
-            & df["question_id"].notna()
-        ]
+        df[is_user & has_question & not_attachment]
         .sort_values(["id", "question_id", "ordre_message_question"])
         .groupby(["id", "question_id"])
         .agg(
