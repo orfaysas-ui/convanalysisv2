@@ -1106,7 +1106,7 @@ def get_hotel_code(df: pd.DataFrame) -> pd.DataFrame:
                 return val.strip()
         
         # 2. Fallback : cherche dans le transcript
-        for transcript in group["Transcript"]:
+        for transcript in group["transcript"]:
             code = _extract_from_transcript(transcript)
             if code:
                 return code
