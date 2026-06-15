@@ -1073,15 +1073,53 @@ def clean_dates(conversations: pd.DataFrame) -> pd.DataFrame:
     result["month"] = pd.to_datetime(result["date"]).dt.month
     return result
 
+HOTEL_CODE_PATTERN = re.compile(r'\b[Hh][A-Za-z0-9]{4}\b')
+
+def _is_valid_hotel_code(value: str) -> bool:
+    """Vérifie que la valeur est un code hôtel valide."""
+    if not isinstance(value, str):
+        return False
+    val = value.strip()
+    return bool(HOTEL_CODE_PATTERN.fullmatch(val)) and val.upper() != "HXXXX"
+
+def _extract_from_transcript(transcript: str) -> str | None:
+    """Cherche un code hôtel dans le transcript."""
+    if not isinstance(transcript, str):
+        return None
+    match = HOTEL_CODE_PATTERN.search(transcript)
+    if match:
+        code = match.group()
+        return code if code.upper() != "HXXXX" else None
+    return None
 
 def get_hotel_code(df: pd.DataFrame) -> pd.DataFrame:
-    """Extrait le code hôtel par conversation."""
-    return (
-        df.groupby("Conversation ID")["Hotel Code"]
-        .first()
+    """Extrait le code hôtel par conversation.
+    
+    Priorité :
+    1. Colonne 'Hotel Code' si format valide (H/h + 4 alphanum, ≠ 'HXXXX')
+    2. Sinon, extraction depuis le transcript
+    """
+    def resolve_hotel_code(group: pd.DataFrame) -> str | None:
+        # 1. Cherche dans la colonne Hotel Code
+        for val in group["Hotel Code"]:
+            if _is_valid_hotel_code(str(val) if pd.notna(val) else ""):
+                return val.strip()
+        
+        # 2. Fallback : cherche dans le transcript
+        for transcript in group["Transcript"]:
+            code = _extract_from_transcript(transcript)
+            if code:
+                return code
+        
+        return None
+
+    result = (
+        df.groupby("Conversation ID")
+        .apply(resolve_hotel_code, include_groups=False)
         .reset_index()
-        .rename(columns={"Hotel Code": "hotel_code", "Conversation ID": "id"})
     )
+    result.columns = ["id", "hotel_code"]
+    return result
 
 
 def get_topic(df: pd.DataFrame) -> pd.DataFrame:
