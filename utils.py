@@ -1101,7 +1101,7 @@ def get_hotel_code(df: pd.DataFrame) -> pd.DataFrame:
     """
     def resolve_hotel_code(group: pd.DataFrame) -> str | None:
         # 1. Cherche dans la colonne Hotel Code
-        for val in group["Hotel Code"]:
+        for val in group["hotelCode"]:
             if _is_valid_hotel_code(str(val) if pd.notna(val) else ""):
                 return val.strip()
         
