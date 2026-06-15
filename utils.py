@@ -1125,7 +1125,7 @@ def get_hotel_code(df: pd.DataFrame) -> pd.DataFrame:
 def get_topic(df: pd.DataFrame) -> pd.DataFrame:
     """Extrait le topic par conversation."""
     return (
-        df.groupby("Conversation ID")["Topic"]
+        df.groupby("id")["Topic"]
         .first()
         .reset_index()
         .rename(columns={"Topic": "topic", "Conversation ID": "id"})
