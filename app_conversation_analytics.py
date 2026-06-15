@@ -230,7 +230,8 @@ def build_analysis(
     df["date"] = df["started_dt"].dt.date
     df = df[(df["date"] >= start_date) & (df["date"] <= end_date)].copy()
 
-    # 2. Transcript → messages individuels
+    # 2. Transcript & hc → messages individuels
+    hotels_code = utils.get_hotel_code(df)
     transcript = utils.get_transcript(df)
 
     # 3. Segmentation en questions (enrichit le transcript avec speaker_type, question_id, etc.)
@@ -256,6 +257,7 @@ def build_analysis(
         (agent_feedback, ["id", "question_id"]),
         (csat, ["id"]),
         (readable_transcript, ["id"]),
+        (hotels_code, ["id"]),
     ]:
         result = result.merge(other, how="left", on=key)
 
