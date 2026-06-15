@@ -188,6 +188,7 @@ BOOL_COLS = [
 # Colonnes finales à exporter, dans l'ordre souhaité
 FINAL_COLS = [
     "id_conv",
+    "hotel_code",
     "question_id",
     "nb_msg_question",
     "date_question",
