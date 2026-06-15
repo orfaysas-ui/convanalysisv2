@@ -1114,7 +1114,7 @@ def get_hotel_code(df: pd.DataFrame) -> pd.DataFrame:
         return None
 
     result = (
-        df.groupby("Conversation ID")
+        df.groupby("id")
         .apply(resolve_hotel_code, include_groups=False)
         .reset_index()
     )
